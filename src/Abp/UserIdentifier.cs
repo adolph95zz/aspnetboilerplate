@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection;
 using Abp.Extensions;
 
 namespace Abp
@@ -108,7 +109,7 @@ namespace Abp
             //Must have a IS-A relation of types or must be same type
             var typeOfThis = GetType();
             var typeOfOther = other.GetType();
-            if (!typeOfThis.IsAssignableFrom(typeOfOther) && !typeOfOther.IsAssignableFrom(typeOfThis))
+            if (!typeOfThis.GetTypeInfo().IsAssignableFrom(typeOfOther) && !typeOfOther.GetTypeInfo().IsAssignableFrom(typeOfThis))
             {
                 return false;
             }
@@ -119,7 +120,10 @@ namespace Abp
         /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return TenantId == null ? (int)UserId : (int)(TenantId.Value ^ UserId);
+            var hash = 17;
+            hash = TenantId.HasValue ? hash * 23 + TenantId.GetHashCode() : hash;
+            hash = hash * 23 + UserId.GetHashCode();
+            return hash;
         }
 
         /// <inheritdoc/>

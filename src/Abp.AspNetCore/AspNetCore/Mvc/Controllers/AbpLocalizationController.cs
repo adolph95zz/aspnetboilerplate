@@ -26,7 +26,11 @@ namespace Abp.AspNetCore.Mvc.Controllers
             Response.Cookies.Append(
                 CookieRequestCultureProvider.DefaultCookieName,
                 cookieValue,
-                new CookieOptions {Expires = Clock.Now.AddYears(2)}
+                new CookieOptions
+                {
+                    Expires = Clock.Now.AddYears(2),
+                    HttpOnly = true 
+                }
             );
 
             if (AbpSession.UserId.HasValue)
@@ -43,7 +47,7 @@ namespace Abp.AspNetCore.Mvc.Controllers
                 return Json(new AjaxResponse());
             }
 
-            if (!string.IsNullOrWhiteSpace(returnUrl))
+            if (!string.IsNullOrWhiteSpace(returnUrl) && AbpUrlHelper.IsLocalUrl(Request, returnUrl))
             {
                 return Redirect(returnUrl);
             }

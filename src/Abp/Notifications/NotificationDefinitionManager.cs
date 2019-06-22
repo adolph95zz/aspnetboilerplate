@@ -34,7 +34,6 @@ namespace Abp.Notifications
 
             foreach (var providerType in _configuration.Providers)
             {
-                _iocManager.RegisterIfNot(providerType, DependencyLifeStyle.Transient); //TODO: Needed?
                 using (var provider = _iocManager.ResolveAsDisposable<NotificationProvider>(providerType))
                 {
                     provider.Object.SetNotifications(context);
@@ -66,6 +65,11 @@ namespace Abp.Notifications
         public NotificationDefinition GetOrNull(string name)
         {
             return _notificationDefinitions.GetOrDefault(name);
+        }
+
+        public void Remove(string name)
+        {
+            _notificationDefinitions.Remove(name);
         }
 
         public IReadOnlyList<NotificationDefinition> GetAll()

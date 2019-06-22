@@ -1,6 +1,6 @@
-﻿using System.Reflection;
-using System.Text;
-using Abp.IO.Extensions;
+﻿using System.Globalization;
+using System.Linq;
+using System.Reflection;
 
 namespace Abp.Localization.Dictionaries.Xml
 {
@@ -25,15 +25,18 @@ namespace Abp.Localization.Dictionaries.Xml
 
         public override void Initialize(string sourceName)
         {
-            var resourceNames = _assembly.GetManifestResourceNames();
+            var allCultureInfos = CultureInfo.GetCultures(CultureTypes.AllCultures);
+            var resourceNames = _assembly.GetManifestResourceNames().Where(resouceName =>
+                allCultureInfos.Any(culture => resouceName.EndsWith($"{sourceName}.xml", true, null) ||
+                                               resouceName.EndsWith($"{sourceName}-{culture.Name}.xml", true,
+                                                   null))).ToList();
             foreach (var resourceName in resourceNames)
             {
                 if (resourceName.StartsWith(_rootNamespace))
                 {
                     using (var stream = _assembly.GetManifestResourceStream(resourceName))
                     {
-                        var bytes = stream.GetAllBytes();
-                        var xmlString = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3); //Skipping byte order mark
+                        var xmlString = Utf8Helper.ReadStringFromStream(stream);
 
                         var dictionary = CreateXmlLocalizationDictionary(xmlString);
                         if (Dictionaries.ContainsKey(dictionary.CultureInfo.Name))

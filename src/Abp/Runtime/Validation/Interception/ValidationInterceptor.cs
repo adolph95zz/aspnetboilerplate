@@ -1,5 +1,4 @@
-﻿using Abp.Application.Services;
-using Abp.Aspects;
+﻿using Abp.Aspects;
 using Abp.Dependency;
 using Castle.DynamicProxy;
 
@@ -27,7 +26,7 @@ namespace Abp.Runtime.Validation.Interception
 
             using (var validator = _iocResolver.ResolveAsDisposable<MethodInvocationValidator>())
             {
-                validator.Object.Initialize(invocation.Method, invocation.Arguments);
+                validator.Object.Initialize(invocation.MethodInvocationTarget, invocation.Arguments);
                 validator.Object.Validate();
             }
             

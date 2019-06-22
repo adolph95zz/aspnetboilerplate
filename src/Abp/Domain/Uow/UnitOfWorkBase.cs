@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Abp.Extensions;
 using Abp.Runtime.Session;
+using Abp.Utils.Etc;
 using Castle.Core;
 
 namespace Abp.Domain.Uow
@@ -14,7 +15,7 @@ namespace Abp.Domain.Uow
     /// </summary>
     public abstract class UnitOfWorkBase : IUnitOfWork
     {
-        public string Id { get; private set; }
+        public string Id { get; }
 
         [DoNotWire]
         public IUnitOfWork Outer { get; set; }
@@ -37,6 +38,8 @@ namespace Abp.Domain.Uow
             get { return _filters.ToImmutableList(); }
         }
         private readonly List<DataFilterConfiguration> _filters;
+
+        public Dictionary<string, object> Items { get; set; }
 
         /// <summary>
         /// Gets default UOW options.
@@ -98,22 +101,20 @@ namespace Abp.Domain.Uow
             _filters = defaultOptions.Filters.ToList();
 
             AbpSession = NullAbpSession.Instance;
+            Items = new Dictionary<string, object>();
         }
 
         /// <inheritdoc/>
         public void Begin(UnitOfWorkOptions options)
         {
-            if (options == null)
-            {
-                throw new ArgumentNullException("options");
-            }
+            Check.NotNull(options, nameof(options));
 
             PreventMultipleBegin();
             Options = options; //TODO: Do not set options like that, instead make a copy?
 
             SetFilters(options.FilterOverrides);
 
-            SetTenantId(AbpSession.TenantId);
+            SetTenantId(AbpSession.TenantId, false);
 
             BeginUow();
         }
@@ -205,14 +206,28 @@ namespace Abp.Domain.Uow
             });
         }
 
-        public IDisposable SetTenantId(int? tenantId)
+        public virtual IDisposable SetTenantId(int? tenantId)
+        {
+            return SetTenantId(tenantId, true);
+        }
+
+        public virtual IDisposable SetTenantId(int? tenantId, bool switchMustHaveTenantEnableDisable)
         {
             var oldTenantId = _tenantId;
             _tenantId = tenantId;
 
-            var mustHaveTenantEnableChange = tenantId == null
-                ? DisableFilter(AbpDataFilters.MustHaveTenant)
-                : EnableFilter(AbpDataFilters.MustHaveTenant);
+
+            IDisposable mustHaveTenantEnableChange;
+            if (switchMustHaveTenantEnableDisable)
+            {
+                mustHaveTenantEnableChange = tenantId == null
+                    ? DisableFilter(AbpDataFilters.MustHaveTenant)
+                    : EnableFilter(AbpDataFilters.MustHaveTenant);
+            }
+            else
+            {
+                mustHaveTenantEnableChange = NullDisposable.Instance;
+            }
 
             var mayHaveTenantChange = SetFilterParameter(AbpDataFilters.MayHaveTenant, AbpDataFilters.Parameters.TenantId, tenantId);
             var mustHaveTenantChange = SetFilterParameter(AbpDataFilters.MustHaveTenant, AbpDataFilters.Parameters.TenantId, tenantId ?? 0);
@@ -268,7 +283,7 @@ namespace Abp.Domain.Uow
         /// <inheritdoc/>
         public void Dispose()
         {
-            if (IsDisposed)
+            if (!_isBeginCalledBefore || IsDisposed)
             {
                 return;
             }
@@ -430,6 +445,11 @@ namespace Abp.Domain.Uow
             }
 
             return filterIndex;
+        }
+
+        public override string ToString()
+        {
+            return $"[UnitOfWork {Id}]";
         }
     }
 }

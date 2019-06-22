@@ -75,8 +75,9 @@ namespace Abp.TestBase.SampleApplication.Tests.People
         public async Task Should_Set_Deletion_Audit_Informations()
         {
             const long userId = 42;
-
             AbpSession.UserId = userId;
+
+            var uowManager = Resolve<IUnitOfWorkManager>();
 
             //Get an entity to delete
             var personToBeDeleted = (await _personRepository.GetAllListAsync()).FirstOrDefault();
@@ -86,7 +87,7 @@ namespace Abp.TestBase.SampleApplication.Tests.People
             personToBeDeleted.IsDeleted.ShouldBe(false);
             personToBeDeleted.DeletionTime.ShouldBe(null);
             personToBeDeleted.DeleterUserId.ShouldBe(null);
-            
+
             //Delete it
             await _personRepository.DeleteAsync(personToBeDeleted.Id);
 
@@ -94,7 +95,6 @@ namespace Abp.TestBase.SampleApplication.Tests.People
             (await _personRepository.FirstOrDefaultAsync(personToBeDeleted.Id)).ShouldBe(null);
 
             //Get deleted entity again and check audit informations
-            var uowManager = Resolve<IUnitOfWorkManager>();
             using (var ouw = uowManager.Begin())
             {
                 using (uowManager.Current.DisableFilter(AbpDataFilters.SoftDelete))
@@ -109,6 +109,36 @@ namespace Abp.TestBase.SampleApplication.Tests.People
                 }
 
                 ouw.Complete();
+            }
+        }
+
+        [Fact]
+        public async Task Should_Permanently_Delete_SoftDelete_Entity_With_HarDelete_Method()
+        {
+            var uowManager = Resolve<IUnitOfWorkManager>();
+
+            using (var uow = uowManager.Begin())
+            {
+                var people = _personRepository.GetAllList();
+
+                foreach (var person in people)
+                {
+                    await _personRepository.HardDeleteAsync(person);
+                }
+
+                uow.Complete();
+            }
+
+            using (var uow = uowManager.Begin())
+            {
+                using (uowManager.Current.DisableFilter(AbpDataFilters.SoftDelete))
+                {
+                    var poeple = _personRepository.GetAllList();
+                    poeple.Count.ShouldBe(1);
+                    poeple.First().Name.ShouldBe("emre");
+                }
+
+                uow.Complete();
             }
         }
     }

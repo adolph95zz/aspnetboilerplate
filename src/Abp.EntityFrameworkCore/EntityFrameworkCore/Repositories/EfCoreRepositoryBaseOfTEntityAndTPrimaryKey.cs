@@ -1,35 +1,98 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.Common;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Abp.Collections.Extensions;
+using Abp.Data;
 using Abp.Domain.Entities;
 using Abp.Domain.Repositories;
+using Abp.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 
 namespace Abp.EntityFrameworkCore.Repositories
 {
     /// <summary>
     /// Implements IRepository for Entity Framework.
     /// </summary>
-    /// <typeparam name="TDbContext">DbContext which contains <see cref="TEntity"/>.</typeparam>
+    /// <typeparam name="TDbContext">DbContext which contains <typeparamref name="TEntity"/>.</typeparam>
     /// <typeparam name="TEntity">Type of the Entity for this repository</typeparam>
     /// <typeparam name="TPrimaryKey">Primary key of the entity</typeparam>
-    public class EfCoreRepositoryBase<TDbContext, TEntity, TPrimaryKey> : AbpRepositoryBase<TEntity, TPrimaryKey>, IRepositoryWithDbContext
+    public class EfCoreRepositoryBase<TDbContext, TEntity, TPrimaryKey> : 
+        AbpRepositoryBase<TEntity, TPrimaryKey>,
+        ISupportsExplicitLoading<TEntity, TPrimaryKey>,
+        IRepositoryWithDbContext
+        
         where TEntity : class, IEntity<TPrimaryKey>
         where TDbContext : DbContext
     {
         /// <summary>
         /// Gets EF DbContext object.
         /// </summary>
-        public virtual TDbContext Context { get { return _dbContextProvider.GetDbContext(MultiTenancySide); } }
+        public virtual TDbContext Context => _dbContextProvider.GetDbContext(MultiTenancySide);
 
         /// <summary>
         /// Gets DbSet for given entity.
         /// </summary>
-        public virtual DbSet<TEntity> Table { get { return Context.Set<TEntity>(); } }
+        public virtual DbSet<TEntity> Table => Context.Set<TEntity>();
 
+        /// <summary>
+        /// Gets DbQuery for given entity.
+        /// </summary>
+        public virtual DbQuery<TEntity> DbQueryTable => Context.Query<TEntity>();
+
+        private static readonly ConcurrentDictionary<Type, bool> EntityIsDbQuery =
+            new ConcurrentDictionary<Type, bool>();
+
+        protected virtual IQueryable<TEntity> GetQueryable()
+        {
+            if (EntityIsDbQuery.GetOrAdd(typeof(TEntity), key => Context.GetType().GetProperties().Any(property =>
+                    ReflectionHelper.IsAssignableToGenericType(property.PropertyType, typeof(DbQuery<>)) &&
+                    ReflectionHelper.IsAssignableToGenericType(property.PropertyType.GenericTypeArguments[0],
+                        typeof(IEntity<>)) &&
+                    property.PropertyType.GetGenericArguments().Any(x => x == typeof(TEntity)))))
+            {
+                return DbQueryTable.AsQueryable();
+            }
+
+            return Table.AsQueryable();
+        }
+
+        public virtual DbTransaction Transaction
+        {
+            get
+            {
+                return (DbTransaction) TransactionProvider?.GetActiveTransaction(new ActiveTransactionProviderArgs
+                {
+                    {"ContextType", typeof(TDbContext) },
+                    {"MultiTenancySide", MultiTenancySide }
+                });
+            }
+        }
+
+        public virtual DbConnection Connection
+        {
+            get
+            {
+                var connection = Context.Database.GetDbConnection();
+
+                if (connection.State != ConnectionState.Open)
+                {
+                    connection.Open();
+                }
+
+                return connection;
+            }
+        }
+
+        public IActiveTransactionProvider TransactionProvider { private get; set; }
+        
         private readonly IDbContextProvider<TDbContext> _dbContextProvider;
 
         /// <summary>
@@ -43,21 +106,19 @@ namespace Abp.EntityFrameworkCore.Repositories
 
         public override IQueryable<TEntity> GetAll()
         {
-            return Table;
+            return GetAllIncluding();
         }
 
         public override IQueryable<TEntity> GetAllIncluding(params Expression<Func<TEntity, object>>[] propertySelectors)
         {
-            if (propertySelectors.IsNullOrEmpty())
-            {
-                return GetAll();
-            }
+            var query = GetQueryable();
 
-            var query = GetAll();
-
-            foreach (var propertySelector in propertySelectors)
+            if (!propertySelectors.IsNullOrEmpty())
             {
-                query = query.Include(propertySelector);
+                foreach (var propertySelector in propertySelectors)
+                {
+                    query = query.Include(propertySelector);
+                }
             }
 
             return query;
@@ -95,14 +156,14 @@ namespace Abp.EntityFrameworkCore.Repositories
 
         public override Task<TEntity> InsertAsync(TEntity entity)
         {
-            return Task.FromResult(Table.Add(entity).Entity);
+            return Task.FromResult(Insert(entity));
         }
 
         public override TPrimaryKey InsertAndGetId(TEntity entity)
         {
             entity = Insert(entity);
 
-            if (entity.IsTransient())
+            if (MayHaveTemporaryKey(entity) || entity.IsTransient())
             {
                 Context.SaveChanges();
             }
@@ -114,7 +175,7 @@ namespace Abp.EntityFrameworkCore.Repositories
         {
             entity = await InsertAsync(entity);
 
-            if (entity.IsTransient())
+            if (MayHaveTemporaryKey(entity) || entity.IsTransient())
             {
                 await Context.SaveChangesAsync();
             }
@@ -126,7 +187,7 @@ namespace Abp.EntityFrameworkCore.Repositories
         {
             entity = InsertOrUpdate(entity);
 
-            if (entity.IsTransient())
+            if (MayHaveTemporaryKey(entity) || entity.IsTransient())
             {
                 Context.SaveChanges();
             }
@@ -138,7 +199,7 @@ namespace Abp.EntityFrameworkCore.Repositories
         {
             entity = await InsertOrUpdateAsync(entity);
 
-            if (entity.IsTransient())
+            if (MayHaveTemporaryKey(entity) || entity.IsTransient())
             {
                 await Context.SaveChangesAsync();
             }
@@ -155,8 +216,7 @@ namespace Abp.EntityFrameworkCore.Repositories
 
         public override Task<TEntity> UpdateAsync(TEntity entity)
         {
-            AttachIfNot(entity);
-            Context.Entry(entity).State = EntityState.Modified;
+            entity = Update(entity);
             return Task.FromResult(entity);
         }
 
@@ -212,13 +272,31 @@ namespace Abp.EntityFrameworkCore.Repositories
             {
                 return;
             }
-            
+
             Table.Attach(entity);
         }
 
         public DbContext GetDbContext()
         {
             return Context;
+        }
+
+        public Task EnsureCollectionLoadedAsync<TProperty>(
+            TEntity entity, 
+            Expression<Func<TEntity, IEnumerable<TProperty>>> collectionExpression, 
+            CancellationToken cancellationToken)
+            where TProperty : class
+        {
+            return Context.Entry(entity).Collection(collectionExpression).LoadAsync(cancellationToken);
+        }
+
+        public Task EnsurePropertyLoadedAsync<TProperty>(
+            TEntity entity,
+            Expression<Func<TEntity, TProperty>> propertyExpression,
+            CancellationToken cancellationToken)
+            where TProperty : class
+        {
+            return Context.Entry(entity).Reference(propertyExpression).LoadAsync(cancellationToken);
         }
 
         private TEntity GetFromChangeTrackerOrNull(TPrimaryKey id)
@@ -231,6 +309,26 @@ namespace Abp.EntityFrameworkCore.Repositories
                 );
 
             return entry?.Entity as TEntity;
+        }
+
+        private static bool MayHaveTemporaryKey(TEntity entity)
+        {
+            if (typeof(TPrimaryKey) == typeof(byte))
+            {
+                return true;
+            }
+
+            if (typeof(TPrimaryKey) == typeof(int))
+            {
+                return Convert.ToInt32(entity.Id) <= 0;
+            }
+
+            if (typeof(TPrimaryKey) == typeof(long))
+            {
+                return Convert.ToInt64(entity.Id) <= 0;
+            }
+
+            return false;
         }
     }
 }

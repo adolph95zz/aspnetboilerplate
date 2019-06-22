@@ -18,6 +18,14 @@
 
         let isEnabled: boolean;
 
+        let ignoreFeatureCheckForHostUsers: boolean;
+
+        let tenantIdCookieName: string;
+
+        function setTenantIdCookie(tenantId?: number): void;
+
+        function getTenantIdCookie(): number;
+
     }
 
     interface IAbpSession {
@@ -47,6 +55,8 @@
             icon: string;
 
             isDefault: boolean;
+
+            isDisabled: boolean;
 
         }
 
@@ -100,6 +110,7 @@
 
         function getToken(): string;
 
+        function clearToken(): void;
     }
 
     namespace features {
@@ -284,17 +295,17 @@
 
         //TODO: these methods return jQuery.Promise instead of any. fix it.
 
-        function info(message: string, title?: string): any;
+        function info(message: string, title?: string, isHtml?: boolean, options?: any): any;
 
-        function success(message: string, title?: string): any;
+        function success(message: string, title?: string, isHtml?: boolean, options?: any): any;
 
-        function warn(message: string, title?: string): any;
+        function warn(message: string, title?: string, isHtml?: boolean, options?: any): any;
 
-        function error(message: string, title?: string): any;
+        function error(message: string, title?: string, isHtml?: boolean, options?: any): any;
 
-        function confirm(message: string, callback?: (result: boolean) => void): any;
+        function confirm(message: string, callback?: (result: boolean, options?: any) => void): any;
 
-        function confirm(message: string, title?: string, callback?: (result: boolean) => void): any;
+        function confirm(message: string, title?: string, callback?: (result: boolean) => void, isHtml?: boolean, options?: any): any;
 
     }
 
@@ -316,7 +327,7 @@
 
         function off(eventName: string, callback: (...args: any[]) => void): void;
 
-        function trigger(eventName: string): void;
+        function trigger(eventName: string, ...args: any[]): void;
 
     }
 
@@ -339,7 +350,7 @@
 
         function truncateString(str: string, maxLength: number): string;
 
-        function truncateStringWithPostfix(str: string, maxLength: number, postfix: string): string;
+        function truncateStringWithPostfix(str: string, maxLength: number, postfix?: string): string;
 
         function isFunction(obj: any): boolean;
 
@@ -347,18 +358,32 @@
 
         /**
         * Sets a cookie value for given key.
+        * This is a simple implementation created to be used by ABP.
+        * Please use a complete cookie library if you need.
         * @param {string} key
         * @param {string} value 
-        * @param {Date} expireDate Optional. If not specified the cookie will expire at the end of session.
+        * @param {Date} expireDate (optional). If not specified the cookie will expire at the end of session.
+        * @param {string} path (optional)
         */
-        function setCookieValue(key: string, value: string, expireDate?: Date): void;
+        function setCookieValue(key: string, value: string, expireDate?: Date, path?: string): void;
 
         /**
         * Gets a cookie with given key.
+        * This is a simple implementation created to be used by ABP.
+        * Please use a complete cookie library if you need.
         * @param {string} key
-        * @returns {string} Cookie value or null.
+        * @returns {string} Cookie value or null
         */
         function getCookieValue(key: string): string;
+
+        /**
+         * Deletes cookie for given key.
+         * This is a simple implementation created to be used by ABP.
+         * Please use a complete cookie library if you need.
+         * @param {string} key
+         * @param {string} path (optional)
+         */
+        function deleteCookie(key: string, path?: string): void;
     }
 
     namespace timing {

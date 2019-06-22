@@ -1,8 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Abp.Application.Features;
+using Abp.Authorization;
 using Abp.Collections.Extensions;
 using Abp.Localization;
+using System;
 
 namespace Abp.Application.Navigation
 {
@@ -15,23 +16,23 @@ namespace Abp.Application.Navigation
         /// Unique name of the menu item in the application. 
         /// Can be used to find this menu item later.
         /// </summary>
-        public string Name { get; private set; }
+        public string Name { get; }
 
         /// <summary>
         /// Display name of the menu item. Required.
         /// </summary>
         public ILocalizableString DisplayName { get; set; }
-        
+
         /// <summary>
         /// The Display order of the menu. Optional.
         /// </summary>
         public int Order { get; set; }
-        
+
         /// <summary>
         /// Icon of the menu item if exists. Optional.
         /// </summary>
         public string Icon { get; set; }
-        
+
         /// <summary>
         /// The URL to navigate when this menu item is selected. Optional.
         /// </summary>
@@ -41,7 +42,14 @@ namespace Abp.Application.Navigation
         /// A permission name. Only users that has this permission can see this menu item.
         /// Optional.
         /// </summary>
+        [Obsolete("Use PermissionDependency instead.")]
         public string RequiredPermissionName { get; set; }
+
+        /// <summary>
+        /// A permission dependency. Only users that can satisfy this permission dependency can see this menu item.
+        /// Optional.
+        /// </summary>
+        public IPermissionDependency PermissionDependency { get; set; }
 
         /// <summary>
         /// A feature dependency.
@@ -57,10 +65,12 @@ namespace Abp.Application.Navigation
         /// <summary>
         /// Returns true if this menu item has no child <see cref="Items"/>.
         /// </summary>
-        public bool IsLeaf
-        {
-            get { return Items.IsNullOrEmpty(); }
-        }
+        public bool IsLeaf => Items.IsNullOrEmpty();
+
+        /// <summary>
+        /// Target of the menu item. Can be "_blank", "_self", "_parent", "_top" or a frame name.
+        /// </summary>
+        public string Target { get; set; }
 
         /// <summary>
         /// Can be used to store a custom object related to this menu item. Optional.
@@ -68,33 +78,50 @@ namespace Abp.Application.Navigation
         public object CustomData { get; set; }
 
         /// <summary>
-        /// Sub items of this menu item. Optional.
+        /// Can be used to enable/disable a menu item.
         /// </summary>
-        public virtual IList<MenuItemDefinition> Items { get; private set; }
+        public bool IsEnabled { get; set; }
 
         /// <summary>
-        /// Creates a new <see cref="MenuItemDefinition"/> object.
+        /// Can be used to show/hide a menu item.
         /// </summary>
-        public MenuItemDefinition(
-            string name, 
-            ILocalizableString displayName, 
-            string icon = null, 
-            string url = null, 
-            bool requiresAuthentication = false, 
-            string requiredPermissionName = null, 
-            int order = 0, 
-            object customData = null,
-            IFeatureDependency featureDependency = null)
-        {
-            if (string.IsNullOrEmpty(name))
-            {
-                throw new ArgumentNullException("name");
-            }
+        public bool IsVisible { get; set; }
 
-            if (displayName == null)
-            {
-                throw new ArgumentNullException("displayName");
-            }
+        /// <summary>
+        /// Sub items of this menu item. Optional.
+        /// </summary>
+        public virtual List<MenuItemDefinition> Items { get; }
+
+        /// <param name="name"></param>
+        /// <param name="displayName"></param>
+        /// <param name="icon"></param>
+        /// <param name="url"></param>
+        /// <param name="requiresAuthentication"></param>
+        /// <param name="requiredPermissionName">This parameter is obsolete. Use <paramref name="permissionDependency"/> instead!</param>
+        /// <param name="order"></param>
+        /// <param name="customData"></param>
+        /// <param name="featureDependency"></param>
+        /// <param name="target"></param>
+        /// <param name="isEnabled"></param>
+        /// <param name="isVisible"></param>
+        /// <param name="permissionDependency"></param>
+        public MenuItemDefinition(
+            string name,
+            ILocalizableString displayName,
+            string icon = null,
+            string url = null,
+            bool requiresAuthentication = false,
+            string requiredPermissionName = null,
+            int order = 0,
+            object customData = null,
+            IFeatureDependency featureDependency = null,
+            string target = null,
+            bool isEnabled = true,
+            bool isVisible = true,
+            IPermissionDependency permissionDependency = null)
+        {
+            Check.NotNull(name, nameof(name));
+            Check.NotNull(displayName, nameof(displayName));
 
             Name = name;
             DisplayName = displayName;
@@ -105,6 +132,10 @@ namespace Abp.Application.Navigation
             Order = order;
             CustomData = customData;
             FeatureDependency = featureDependency;
+            Target = target;
+            IsEnabled = isEnabled;
+            IsVisible = isVisible;
+            PermissionDependency = permissionDependency;
 
             Items = new List<MenuItemDefinition>();
         }
@@ -118,6 +149,15 @@ namespace Abp.Application.Navigation
         {
             Items.Add(menuItem);
             return this;
+        }
+
+        /// <summary>
+        /// Remove notification with given name
+        /// </summary>
+        /// <param name="name"></param>
+        public void RemoveItem(string name)
+        {
+            Items.RemoveAll(m => m.Name == name);
         }
     }
 }

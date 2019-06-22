@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
+﻿using System.Linq;
 using JetBrains.Annotations;
 
 namespace Abp.RealTime
@@ -20,19 +18,6 @@ namespace Abp.RealTime
             [NotNull] UserIdentifier user)
         {
             return onlineClientManager.GetAllByUserId(user).Any();
-        }
-
-        [NotNull]
-        public static IReadOnlyList<IOnlineClient> GetAllByUserId(
-            [NotNull] this IOnlineClientManager onlineClientManager, 
-            [NotNull] IUserIdentifier user)
-        {
-            Check.NotNull(onlineClientManager, nameof(onlineClientManager));
-            Check.NotNull(user, nameof(user));
-
-            return onlineClientManager.GetAllClients()
-                 .Where(c => (c.UserId == user.UserId && c.TenantId == user.TenantId))
-                 .ToImmutableList();
         }
 
         public static bool Remove(

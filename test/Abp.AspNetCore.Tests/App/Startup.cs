@@ -1,5 +1,8 @@
 ﻿using System;
+using Abp.AspNetCore.Configuration;
+using Abp.AspNetCore.Mvc.Extensions;
 using Abp.AspNetCore.TestBase;
+using Abp.Reflection.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ApplicationParts;
@@ -12,9 +15,9 @@ namespace Abp.AspNetCore.App
     {
         public IServiceProvider ConfigureServices(IServiceCollection services)
         {
-            var mvc = services.AddMvc();
+            var mvc = services.AddMvc().AddXmlSerializerFormatters();
 
-            mvc.PartManager.ApplicationParts.Add(new AssemblyPart(typeof(AbpAspNetCoreModule).Assembly));
+            mvc.PartManager.ApplicationParts.Add(new AssemblyPart(typeof(AbpAspNetCoreModule).GetAssembly()));
 
             //Configure Abp and Dependency Injection
             return services.AddAbp<AppModule>(options =>
@@ -31,9 +34,7 @@ namespace Abp.AspNetCore.App
 
             app.UseMvc(routes =>
             {
-                routes.MapRoute(
-                    name: "default",
-                    template: "{controller=Home}/{action=Index}/{id?}");
+                app.ApplicationServices.GetRequiredService<IAbpAspNetCoreConfiguration>().RouteConfiguration.ConfigureAll(routes);
             });
         }
     }

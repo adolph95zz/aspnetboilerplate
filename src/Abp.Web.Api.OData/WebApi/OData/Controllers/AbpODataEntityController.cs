@@ -1,15 +1,12 @@
 ﻿using System;
 using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Http;
-using System.Web.Http.Controllers;
-using System.Web.OData;
+using Abp.Authorization;
 using Abp.Domain.Entities;
 using Abp.Domain.Repositories;
-using Abp.Domain.Uow;
+using Microsoft.AspNet.OData;
 
 namespace Abp.WebApi.OData.Controllers
 {
@@ -23,46 +20,49 @@ namespace Abp.WebApi.OData.Controllers
         }
     }
 
-    public abstract class AbpODataEntityController<TEntity, TPrimaryKey> : ODataController
+    public abstract class AbpODataEntityController<TEntity, TPrimaryKey> : AbpODataController
         where TPrimaryKey : IEquatable<TPrimaryKey>
         where TEntity : class, IEntity<TPrimaryKey>
     {
-        public IUnitOfWorkManager UnitOfWorkManager { get; set; }
-
         protected IRepository<TEntity, TPrimaryKey> Repository { get; private set; }
-
-        private IUnitOfWorkCompleteHandle _unitOfWorkCompleteHandler;
-
-        private bool _disposed;
 
         protected AbpODataEntityController(IRepository<TEntity, TPrimaryKey> repository)
         {
             Repository = repository;
         }
 
-        public override Task<HttpResponseMessage> ExecuteAsync(HttpControllerContext controllerContext, CancellationToken cancellationToken)
-        {
-            _unitOfWorkCompleteHandler = UnitOfWorkManager.Begin();
+        protected virtual string GetPermissionName { get; set; }
 
-            return base.ExecuteAsync(controllerContext, cancellationToken);
-        }
+        protected virtual string GetAllPermissionName { get; set; }
+
+        protected virtual string CreatePermissionName { get; set; }
+
+        protected virtual string UpdatePermissionName { get; set; }
+
+        protected virtual string DeletePermissionName { get; set; }
 
         [EnableQuery]
         public virtual IQueryable<TEntity> Get()
         {
+            CheckGetAllPermission();
+
             return Repository.GetAll();
         }
 
         [EnableQuery]
         public virtual SingleResult<TEntity> Get([FromODataUri] TPrimaryKey key)
         {
+            CheckGetPermission();
+
             var entity = Repository.GetAll().Where(e => e.Id.Equals(key));
 
             return SingleResult.Create(entity);
         }
 
-        public virtual async Task<IHttpActionResult> Post(TEntity entity)
+        public virtual async Task<IHttpActionResult> Post([FromBody] TEntity entity)
         {
+            CheckCreatePermission();
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -70,23 +70,25 @@ namespace Abp.WebApi.OData.Controllers
 
             var createdEntity = await Repository.InsertAsync(entity);
             await UnitOfWorkManager.Current.SaveChangesAsync();
-            
+
             return Created(createdEntity);
         }
 
         public virtual async Task<IHttpActionResult> Patch([FromODataUri] TPrimaryKey key, Delta<TEntity> entity)
         {
+            CheckUpdatePermission();
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
-            
+
             var dbLookup = await Repository.GetAsync(key);
-            if (entity == null)
+            if (dbLookup == null)
             {
                 return NotFound();
             }
-            
+
             entity.Patch(dbLookup);
 
             return Updated(entity);
@@ -94,6 +96,8 @@ namespace Abp.WebApi.OData.Controllers
 
         public virtual async Task<IHttpActionResult> Put([FromODataUri] TPrimaryKey key, TEntity update)
         {
+            CheckUpdatePermission();
+
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -103,7 +107,7 @@ namespace Abp.WebApi.OData.Controllers
             {
                 return BadRequest();
             }
-            
+
             var updated = await Repository.UpdateAsync(update);
 
             return Updated(updated);
@@ -111,28 +115,50 @@ namespace Abp.WebApi.OData.Controllers
 
         public virtual async Task<IHttpActionResult> Delete([FromODataUri] TPrimaryKey key)
         {
+            CheckDeletePermission();
+
             var product = await Repository.GetAsync(key);
             if (product == null)
             {
                 return NotFound();
             }
-            
+
             await Repository.DeleteAsync(key);
 
             return StatusCode(HttpStatusCode.NoContent);
         }
 
-        protected override void Dispose(bool disposing)
+        protected virtual void CheckPermission(string permissionName)
         {
-            if (!_disposed)
+            if (!string.IsNullOrEmpty(permissionName))
             {
-                _unitOfWorkCompleteHandler.Complete();
-                _unitOfWorkCompleteHandler.Dispose();
+                PermissionChecker.Authorize(permissionName);
             }
+        }
 
-            _disposed = true;
+        protected virtual void CheckGetPermission()
+        {
+            CheckPermission(GetPermissionName);
+        }
 
-            base.Dispose(disposing);
+        protected virtual void CheckGetAllPermission()
+        {
+            CheckPermission(GetAllPermissionName);
+        }
+
+        protected virtual void CheckCreatePermission()
+        {
+            CheckPermission(CreatePermissionName);
+        }
+
+        protected virtual void CheckUpdatePermission()
+        {
+            CheckPermission(UpdatePermissionName);
+        }
+
+        protected virtual void CheckDeletePermission()
+        {
+            CheckPermission(DeletePermissionName);
         }
     }
 }

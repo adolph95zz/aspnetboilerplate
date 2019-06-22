@@ -1,6 +1,6 @@
-﻿using System.Reflection;
-using System.Text;
-using Abp.IO.Extensions;
+﻿using System.Globalization;
+using System.Linq;
+using System.Reflection;
 using Abp.Localization.Dictionaries.Xml;
 
 namespace Abp.Localization.Dictionaries.Json
@@ -36,17 +36,20 @@ namespace Abp.Localization.Dictionaries.Json
 
         public override void Initialize(string sourceName)
         {
-            var resourceNames = _assembly.GetManifestResourceNames();
+            var allCultureInfos = CultureInfo.GetCultures(CultureTypes.AllCultures);
+            var resourceNames = _assembly.GetManifestResourceNames().Where(resouceName =>
+                allCultureInfos.Any(culture => resouceName.EndsWith($"{sourceName}.json", true, null) ||
+                                               resouceName.EndsWith($"{sourceName}-{culture.Name}.json", true,
+                                                   null))).ToList();
             foreach (var resourceName in resourceNames)
             {
                 if (resourceName.StartsWith(_rootNamespace))
                 {
                     using (var stream = _assembly.GetManifestResourceStream(resourceName))
                     {
-                        var bytes = stream.GetAllBytes();
-                        var xmlString = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3); //Skipping byte order mark
+                        var jsonString = Utf8Helper.ReadStringFromStream(stream);
 
-                        var dictionary = CreateJsonLocalizationDictionary(xmlString);
+                        var dictionary = CreateJsonLocalizationDictionary(jsonString);
                         if (Dictionaries.ContainsKey(dictionary.CultureInfo.Name))
                         {
                             throw new AbpInitializationException(sourceName + " source contains more than one dictionary for the culture: " + dictionary.CultureInfo.Name);

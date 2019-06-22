@@ -8,14 +8,13 @@ namespace Abp.Tests.Domain.Values
         [Fact]
         public void Value_Objects_Should_Be_Same_If_Contains_Same_Data()
         {
-            var guid = Guid.NewGuid();
-
-            var address1 = new Address(guid, "Baris Manco Street", 42);
-            var address2 = new Address(guid, "Baris Manco Street", 42);
+            var address1 = new Address(new Guid("21C67A65-ED5A-4512-AA29-66308FAAB5AF"), "Baris Manco Street", 42);
+            var address2 = new Address(new Guid("21C67A65-ED5A-4512-AA29-66308FAAB5AF"), "Baris Manco Street", 42);
 
             Assert.Equal(address1, address2);
             Assert.Equal(address1.GetHashCode(), address2.GetHashCode());
             Assert.True(address1 == address2);
+            Assert.False(address1 != address2);
         }
 
         [Fact]
@@ -41,9 +40,8 @@ namespace Abp.Tests.Domain.Values
         public void Value_Objects_Should_Not_Be_Same_If_One_Of_Them_Is_Null()
         {
             Assert.NotEqual(
-                new Address(new Guid("21C67A65-ED5A-4512-AA29-66308FAAB5AF"), "Baris Manco Street", 42),
-                null
-            );
+                null,
+                new Address(new Guid("21C67A65-ED5A-4512-AA29-66308FAAB5AF"), "Baris Manco Street", 42));
 
             Assert.True(new Address(new Guid("21C67A65-ED5A-4512-AA29-66308FAAB5AF"), "Baris Manco Street", 42) != null);
         }
@@ -57,6 +55,28 @@ namespace Abp.Tests.Domain.Values
             Assert.NotEqual(anAddress, anotherAddress);
             Assert.False(anotherAddress.Equals(anAddress));
             Assert.True(anAddress != anotherAddress);
+        }
+
+        [Fact]
+        public void Value_Object_Should_Be_Same_If_Ignored_Property_Diff()
+        {
+            var address1 = new Address3(new Guid("21C67A65-ED5A-4512-AA29-66308FAAB5AF"), "Baris Manco Street", 42);
+            var address2 = new Address3(null, "Baris Manco Street", 42);
+
+            Assert.Equal(address1, address2);
+            Assert.Equal(address1.GetHashCode(), address2.GetHashCode());
+            Assert.True(address1 == address2);
+            Assert.False(address1 != address2);
+        }
+
+        [Fact]
+        public void Value_Object_Should__Not_Be_Same_If_NotIgnored_Property_Diff()
+        {
+            var address1 = new Address3(new Guid("21C67A65-ED5A-4512-AA29-66308FAAB5AF"), "Baris Manco Street", 42);
+            var address2 = new Address3(null, "Another street", 42);
+
+            Assert.NotEqual(address1, address2);
+            Assert.NotEqual(address1.GetHashCode(), address2.GetHashCode());
         }
     }
 }

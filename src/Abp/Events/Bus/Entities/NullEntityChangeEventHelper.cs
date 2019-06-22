@@ -1,3 +1,5 @@
+using System.Threading.Tasks;
+
 namespace Abp.Events.Bus.Entities
 {
     /// <summary>
@@ -6,10 +8,9 @@ namespace Abp.Events.Bus.Entities
     public class NullEntityChangeEventHelper : IEntityChangeEventHelper
     {
         /// <summary>
-        /// Gets single instance of <see cref="NullEventBus"/> class.
+        /// Gets single instance of <see cref="NullEntityChangeEventHelper"/> class.
         /// </summary>
-        public static NullEntityChangeEventHelper Instance { get { return SingletonInstance; } }
-        private static readonly NullEntityChangeEventHelper SingletonInstance = new NullEntityChangeEventHelper();
+        public static NullEntityChangeEventHelper Instance { get; } = new NullEntityChangeEventHelper();
 
         private NullEntityChangeEventHelper()
         {
@@ -44,6 +45,16 @@ namespace Abp.Events.Bus.Entities
         public void TriggerEntityDeletedEventOnUowCompleted(object entity)
         {
             
+        }
+
+        public void TriggerEvents(EntityChangeReport changeReport)
+        {
+            
+        }
+
+        public Task TriggerEventsAsync(EntityChangeReport changeReport)
+        {
+            return Task.FromResult(0);
         }
     }
 }

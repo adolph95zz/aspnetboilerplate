@@ -9,6 +9,13 @@ namespace Abp.BackgroundJobs
     public interface IBackgroundJobStore
     {
         /// <summary>
+        /// Gets a BackgroundJobInfo based on the given jobId.
+        /// </summary>
+        /// <param name="jobId">The Job Unique Identifier.</param>
+        /// <returns>The BackgroundJobInfo object.</returns>
+        Task<BackgroundJobInfo> GetAsync(long jobId);
+
+        /// <summary>
         /// Inserts a background job.
         /// </summary>
         /// <param name="jobInfo">Job information.</param>
@@ -16,9 +23,9 @@ namespace Abp.BackgroundJobs
 
         /// <summary>
         /// Gets waiting jobs. It should get jobs based on these:
-        /// Conditions: !IsAbandoned && NextTryTime &lt;= Clock.Now.
+        /// Conditions: !IsAbandoned And NextTryTime &lt;= Clock.Now.
         /// Order by: Priority DESC, TryCount ASC, NextTryTime ASC.
-        /// Maximum result: <see cref="maxResultCount"/>.
+        /// Maximum result: <paramref name="maxResultCount"/>.
         /// </summary>
         /// <param name="maxResultCount">Maximum result count.</param>
         Task<List<BackgroundJobInfo>> GetWaitingJobsAsync(int maxResultCount);

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using Abp.Localization.Sources;
 
@@ -9,10 +10,9 @@ namespace Abp.Localization
         /// <summary>
         /// Singleton instance.
         /// </summary>
-        public static NullLocalizationManager Instance { get { return SingletonInstance; } }
-        private static readonly NullLocalizationManager SingletonInstance = new NullLocalizationManager();
+        public static NullLocalizationManager Instance { get; } = new NullLocalizationManager();
 
-        public LanguageInfo CurrentLanguage { get { return new LanguageInfo(Thread.CurrentThread.CurrentUICulture.Name, Thread.CurrentThread.CurrentUICulture.DisplayName); } }
+        public LanguageInfo CurrentLanguage { get { return new LanguageInfo(CultureInfo.CurrentUICulture.Name, CultureInfo.CurrentUICulture.DisplayName); } }
 
         private readonly IReadOnlyList<LanguageInfo> _emptyLanguageArray = new LanguageInfo[0];
 
@@ -20,7 +20,7 @@ namespace Abp.Localization
 
         private NullLocalizationManager()
         {
-            
+
         }
 
         public IReadOnlyList<LanguageInfo> GetAllLanguages()

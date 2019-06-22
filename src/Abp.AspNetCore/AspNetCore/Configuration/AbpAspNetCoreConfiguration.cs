@@ -1,14 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using Abp.AspNetCore.Mvc.Results.Caching;
 using Abp.Domain.Uow;
 using Abp.Web.Models;
+using Microsoft.AspNetCore.Routing;
 
 namespace Abp.AspNetCore.Configuration
 {
     public class AbpAspNetCoreConfiguration : IAbpAspNetCoreConfiguration
     {
         public WrapResultAttribute DefaultWrapResultAttribute { get; }
+
+        public IClientCacheAttribute DefaultClientCacheAttribute { get; set; }
 
         public UnitOfWorkAttribute DefaultUnitOfWorkAttribute { get; }
 
@@ -22,17 +26,24 @@ namespace Abp.AspNetCore.Configuration
 
         public bool SetNoCacheForAjaxResponses { get; set; }
 
+        public bool UseMvcDateTimeFormatForAppServices { get; set; }
+
+        public List<Action<IRouteBuilder>> RouteConfiguration { get; }
+
         public AbpAspNetCoreConfiguration()
         {
             DefaultWrapResultAttribute = new WrapResultAttribute();
+            DefaultClientCacheAttribute = new NoClientCacheAttribute(false);
             DefaultUnitOfWorkAttribute = new UnitOfWorkAttribute();
             ControllerAssemblySettings = new ControllerAssemblySettingList();
             FormBodyBindingIgnoredTypes = new List<Type>();
+            RouteConfiguration = new List<Action<IRouteBuilder>>();
             IsValidationEnabledForControllers = true;
             SetNoCacheForAjaxResponses = true;
             IsAuditingEnabled = true;
+            UseMvcDateTimeFormatForAppServices = false;
         }
-
+       
         public AbpControllerAssemblySettingBuilder CreateControllersForAppServices(
             Assembly assembly,
             string moduleName = AbpControllerAssemblySetting.DefaultServiceModuleName,

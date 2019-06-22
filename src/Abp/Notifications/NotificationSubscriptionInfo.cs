@@ -26,26 +26,26 @@ namespace Abp.Notifications
         /// <summary>
         /// Notification unique name.
         /// </summary>
-        [MaxLength(NotificationInfo.MaxNotificationNameLength)]
+        [StringLength(NotificationInfo.MaxNotificationNameLength)]
         public virtual string NotificationName { get; set; }
 
         /// <summary>
         /// Gets/sets entity type name, if this is an entity level notification.
         /// It's FullName of the entity type.
         /// </summary>
-        [MaxLength(NotificationInfo.MaxEntityTypeNameLength)]
+        [StringLength(NotificationInfo.MaxEntityTypeNameLength)]
         public virtual string EntityTypeName { get; set; }
 
         /// <summary>
         /// AssemblyQualifiedName of the entity type.
         /// </summary>
-        [MaxLength(NotificationInfo.MaxEntityTypeAssemblyQualifiedNameLength)]
+        [StringLength(NotificationInfo.MaxEntityTypeAssemblyQualifiedNameLength)]
         public virtual string EntityTypeAssemblyQualifiedName { get; set; }
 
         /// <summary>
         /// Gets/sets primary key of the entity, if this is an entity level notification.
         /// </summary>
-        [MaxLength(NotificationInfo.MaxEntityIdLength)]
+        [StringLength(NotificationInfo.MaxEntityIdLength)]
         public virtual string EntityId { get; set; }
 
         /// <summary>
@@ -53,14 +53,14 @@ namespace Abp.Notifications
         /// </summary>
         public NotificationSubscriptionInfo()
         {
-            
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="NotificationSubscriptionInfo"/> class.
         /// </summary>
-        public NotificationSubscriptionInfo(int? tenantId, long userId, string notificationName, EntityIdentifier entityIdentifier = null)
+        public NotificationSubscriptionInfo(Guid id, int? tenantId, long userId, string notificationName, EntityIdentifier entityIdentifier = null)
         {
+            Id = id;
             TenantId = tenantId;
             NotificationName = notificationName;
             UserId = userId;

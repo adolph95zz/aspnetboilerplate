@@ -1,5 +1,4 @@
-﻿using System;
-using Abp.Configuration;
+﻿using Abp.Configuration;
 using Abp.Extensions;
 
 namespace Abp.Net.Mail
@@ -10,12 +9,12 @@ namespace Abp.Net.Mail
     /// </summary>
     public abstract class EmailSenderConfiguration : IEmailSenderConfiguration
     {
-        public string DefaultFromAddress
+        public virtual string DefaultFromAddress
         {
             get { return GetNotEmptySettingValue(EmailSettingNames.DefaultFromAddress); }
         }
 
-        public string DefaultFromDisplayName
+        public virtual string DefaultFromDisplayName
         {
             get { return SettingManager.GetSettingValue(EmailSettingNames.DefaultFromDisplayName); }
         }
@@ -38,9 +37,10 @@ namespace Abp.Net.Mail
         protected string GetNotEmptySettingValue(string name)
         {
             var value = SettingManager.GetSettingValue(name);
+
             if (value.IsNullOrEmpty())
             {
-                throw new AbpException(String.Format("Setting value for '{0}' is null or empty!", name));
+                throw new AbpException($"Setting value for '{name}' is null or empty!");
             }
 
             return value;

@@ -6,7 +6,10 @@ using Abp.AspNetCore.Mvc.Extensions;
 using Abp.AspNetCore.Mvc.Proxying.Utils;
 using Abp.Dependency;
 using Abp.Extensions;
+using Abp.Reflection.Extensions;
+using Abp.Threading;
 using Abp.Web.Api.Modeling;
+using Abp.Web.Api.ProxyScripting.Configuration;
 using Castle.Core.Logging;
 using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -19,13 +22,16 @@ namespace Abp.AspNetCore.Mvc.Proxying
 
         private readonly IApiDescriptionGroupCollectionProvider _descriptionProvider;
         private readonly AbpAspNetCoreConfiguration _configuration;
+        private readonly IApiProxyScriptingConfiguration _apiProxyScriptingConfiguration;
 
         public AspNetCoreApiDescriptionModelProvider(
             IApiDescriptionGroupCollectionProvider descriptionProvider,
-            AbpAspNetCoreConfiguration configuration)
+            AbpAspNetCoreConfiguration configuration,
+            IApiProxyScriptingConfiguration apiProxyScriptingConfiguration)
         {
             _descriptionProvider = descriptionProvider;
             _configuration = configuration;
+            _apiProxyScriptingConfiguration = apiProxyScriptingConfiguration;
 
             Logger = NullLogger.Instance;
         }
@@ -38,6 +44,11 @@ namespace Abp.AspNetCore.Mvc.Proxying
             {
                 foreach (var apiDescription in descriptionGroupItem.Items)
                 {
+                    if (!apiDescription.ActionDescriptor.IsControllerAction())
+                    {
+                        continue;
+                    }
+
                     AddApiDescriptionToModel(apiDescription, model);
                 }
             }
@@ -48,25 +59,54 @@ namespace Abp.AspNetCore.Mvc.Proxying
         private void AddApiDescriptionToModel(ApiDescription apiDescription, ApplicationApiDescriptionModel model)
         {
             var moduleModel = model.GetOrAddModule(GetModuleName(apiDescription));
-            var controllerModel = moduleModel.GetOrAddController(apiDescription.GroupName.RemovePostFix(ApplicationService.CommonPostfixes));
-            var method = apiDescription.ActionDescriptor.GetMethodInfo();
+            var controllerModel = moduleModel.GetOrAddController(GetControllerName(apiDescription));
 
-            if (controllerModel.Actions.ContainsKey(method.Name))
+            var method = apiDescription.ActionDescriptor.GetMethodInfo();
+            var methodName = GetNormalizedMethodName(controllerModel, method);
+
+            if (controllerModel.Actions.ContainsKey(methodName))
             {
-                Logger.Warn($"Controller '{controllerModel.Name}' contains more than one action with name '{method.Name}' for module '{moduleModel.Name}'. Ignored: " + apiDescription.ActionDescriptor.GetMethodInfo());
+                Logger.Warn($"Controller '{controllerModel.Name}' contains more than one action with name '{methodName}' for module '{moduleModel.Name}'. Ignored: " + apiDescription.ActionDescriptor.GetMethodInfo());
                 return;
             }
 
             var returnValue = new ReturnValueApiDescriptionModel(method.ReturnType);
 
             var actionModel = controllerModel.AddAction(new ActionApiDescriptionModel(
-                method.Name,
+                methodName,
                 returnValue,
                 apiDescription.RelativePath,
                 apiDescription.HttpMethod
             ));
 
             AddParameterDescriptionsToModel(actionModel, method, apiDescription);
+        }
+
+        private string GetNormalizedMethodName(ControllerApiDescriptionModel controllerModel, MethodInfo method)
+        {
+            if (!_apiProxyScriptingConfiguration.RemoveAsyncPostfixOnProxyGeneration)
+            {
+                return method.Name;
+            }
+
+            if (!method.IsAsync())
+            {
+                return method.Name;
+            }
+
+            var normalizedName = method.Name.RemovePostFix("Async");
+            if (controllerModel.Actions.ContainsKey(normalizedName))
+            {
+                return method.Name;
+            }
+
+            return normalizedName;
+        }
+
+        private static string GetControllerName(ApiDescription apiDescription)
+        {
+            return apiDescription.GroupName?.RemovePostFix(ApplicationService.CommonPostfixes) 
+                   ?? apiDescription.ActionDescriptor.AsControllerActionDescriptor().ControllerName;
         }
 
         private void AddParameterDescriptionsToModel(ActionApiDescriptionModel actionModel, MethodInfo method, ApiDescription apiDescription)
@@ -123,9 +163,9 @@ namespace Abp.AspNetCore.Mvc.Proxying
                 return AbpControllerAssemblySetting.DefaultServiceModuleName;
             }
 
-            foreach (var controllerSetting in _configuration.ControllerAssemblySettings)
+            foreach (var controllerSetting in _configuration.ControllerAssemblySettings.Where(setting => setting.TypePredicate(controllerType)))
             {
-                if (controllerType.Assembly == controllerSetting.Assembly)
+                if (Equals(controllerType.GetAssembly(), controllerSetting.Assembly))
                 {
                     return controllerSetting.ModuleName;
                 }

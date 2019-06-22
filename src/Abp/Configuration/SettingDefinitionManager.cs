@@ -43,8 +43,7 @@ namespace Abp.Configuration
 
         public SettingDefinition GetSettingDefinition(string name)
         {
-            SettingDefinition settingDefinition;
-            if (!_settings.TryGetValue(name, out settingDefinition))
+            if (!_settings.TryGetValue(name, out var settingDefinition))
             {
                 throw new AbpException("There is no setting defined with name: " + name);
             }
@@ -59,7 +58,6 @@ namespace Abp.Configuration
 
         private IDisposableDependencyObjectWrapper<SettingProvider> CreateProvider(Type providerType)
         {
-            _iocManager.RegisterIfNot(providerType, DependencyLifeStyle.Transient); //TODO: Needed?
             return _iocManager.ResolveAsDisposable<SettingProvider>(providerType);
         }
     }

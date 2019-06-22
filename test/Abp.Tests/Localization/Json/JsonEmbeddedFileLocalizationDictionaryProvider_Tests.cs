@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Reflection;
 using Abp.Localization.Dictionaries.Json;
+using Abp.Reflection.Extensions;
 using Shouldly;
 using Xunit;
 
@@ -13,7 +14,7 @@ namespace Abp.Tests.Localization.Json
         public JsonEmbeddedFileLocalizationDictionaryProvider_Tests()
         {
             _dictionaryProvider = new JsonEmbeddedFileLocalizationDictionaryProvider(
-                Assembly.GetExecutingAssembly(),
+                typeof(JsonEmbeddedFileLocalizationDictionaryProvider_Tests).GetAssembly(),
                 "Abp.Tests.Localization.Json.JsonSources"
                 );
 
@@ -32,10 +33,10 @@ namespace Abp.Tests.Localization.Json
             enDict["Apple"].ShouldBe("Apple");
             enDict["Banana"].ShouldBe("Banana");
 
-            var zhCNDict = dictionaries.FirstOrDefault(d => d.CultureInfo.Name == "zh-CN");
-            zhCNDict.ShouldNotBe(null);
-            zhCNDict["Apple"].ShouldBe("苹果");
-            zhCNDict["Banana"].ShouldBe("香蕉");
+            var zhHansDict = dictionaries.FirstOrDefault(d => d.CultureInfo.Name == "zh-Hans");
+            zhHansDict.ShouldNotBe(null);
+            zhHansDict["Apple"].ShouldBe("苹果");
+            zhHansDict["Banana"].ShouldBe("香蕉");
         }
     }
 }

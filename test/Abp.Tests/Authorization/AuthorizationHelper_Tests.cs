@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Reflection;
+using System.Threading.Tasks;
 using Abp.Application.Features;
 using Abp.Authorization;
 using Abp.Configuration.Startup;
@@ -13,30 +14,20 @@ namespace Abp.Tests.Authorization
 
         public AuthorizationHelper_Tests()
         {
-            var featureChecker = Substitute.For<IFeatureChecker>();
-            featureChecker.GetValueAsync(Arg.Any<string>()).Returns("false");
-
-            var permissionChecker = Substitute.For<IPermissionChecker>();
-            permissionChecker.IsGrantedAsync(Arg.Any<string>()).Returns(false);
-
-            var configuration = Substitute.For<IAuthorizationConfiguration>();
-            configuration.IsEnabled.Returns(true);
-
-            _authorizeHelper = new AuthorizationHelper(featureChecker, configuration)
-            {
-                PermissionChecker = permissionChecker
-            };
+            _authorizeHelper = GetAuthorizationHelper(false, false);
         }
 
         [Fact]
         public async Task NotAuthorizedMethodsCanBeCalledAnonymously()
         {
             await _authorizeHelper.AuthorizeAsync(
-                typeof(MyNonAuthorizedClass).GetMethod(nameof(MyNonAuthorizedClass.Test_NotAuthorized))
+                typeof(MyNonAuthorizedClass).GetTypeInfo().GetMethod(nameof(MyNonAuthorizedClass.Test_NotAuthorized)),
+                typeof(MyNonAuthorizedClass)
                 );
 
             await _authorizeHelper.AuthorizeAsync(
-                typeof(MyAuthorizedClass).GetMethod(nameof(MyAuthorizedClass.Test_NotAuthorized))
+                typeof(MyAuthorizedClass).GetTypeInfo().GetMethod(nameof(MyAuthorizedClass.Test_NotAuthorized)),
+                typeof(MyAuthorizedClass)
             );
         }
 
@@ -46,16 +37,29 @@ namespace Abp.Tests.Authorization
             await Assert.ThrowsAsync<AbpAuthorizationException>(async () =>
             {
                 await _authorizeHelper.AuthorizeAsync(
-                    typeof(MyNonAuthorizedClass).GetMethod(nameof(MyNonAuthorizedClass.Test_Authorized))
+                    typeof(MyNonAuthorizedClass).GetTypeInfo().GetMethod(nameof(MyNonAuthorizedClass.Test_Authorized)),
+                    typeof(MyNonAuthorizedClass)
                 );
             });
 
             await Assert.ThrowsAsync<AbpAuthorizationException>(async () =>
             {
                 await _authorizeHelper.AuthorizeAsync(
-                    typeof(MyAuthorizedClass).GetMethod(nameof(MyAuthorizedClass.Test_Authorized))
+                    typeof(MyAuthorizedClass).GetTypeInfo().GetMethod(nameof(MyAuthorizedClass.Test_Authorized)),
+                    typeof(MyAuthorizedClass)
                 );
             });
+        }
+
+        [Fact]
+        public async Task NotAuthorizedFeatureDependentMethodsCanBeCalledAnonymously()
+        {
+            var authorizeHelper = GetAuthorizationHelper(true, false);
+
+            await authorizeHelper.AuthorizeAsync(
+                typeof(MyNonAuthorizedClass).GetTypeInfo().GetMethod(nameof(MyNonAuthorizedClass.Test_FeatureDependent)),
+                typeof(MyNonAuthorizedClass)
+            );
         }
 
         public class MyNonAuthorizedClass
@@ -67,6 +71,12 @@ namespace Abp.Tests.Authorization
 
             [AbpAuthorize]
             public void Test_Authorized()
+            {
+
+            }
+
+            [RequiresFeature("Test")]
+            public void Test_FeatureDependent()
             {
 
             }
@@ -85,6 +95,28 @@ namespace Abp.Tests.Authorization
             {
 
             }
+        }
+
+        private static AuthorizationHelper GetAuthorizationHelper(
+            bool featureCheckerValue,
+            bool isGranted)
+        {
+            var featureChecker = Substitute.For<IFeatureChecker>();
+            featureChecker.GetValueAsync(Arg.Any<string>()).Returns(featureCheckerValue.ToString().ToLower());    
+            featureChecker.IsEnabledAsync(Arg.Any<string>()).Returns(featureCheckerValue);
+            
+            var permissionChecker = Substitute.For<IPermissionChecker>();
+            permissionChecker.IsGrantedAsync(Arg.Any<string>()).Returns(isGranted);
+
+            var configuration = Substitute.For<IAuthorizationConfiguration>();
+            configuration.IsEnabled.Returns(true);
+
+            var authorizeHelper = new AuthorizationHelper(featureChecker, configuration)
+            {
+                PermissionChecker = permissionChecker
+            };
+
+            return authorizeHelper;
         }
     }
 }

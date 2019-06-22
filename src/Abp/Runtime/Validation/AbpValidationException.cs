@@ -53,7 +53,6 @@ namespace Abp.Runtime.Validation
             Severity = LogSeverity.Warn;
         }
 
-
         /// <summary>
         /// Constructor.
         /// </summary>

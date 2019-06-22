@@ -1,35 +1,30 @@
-﻿using System;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using Abp.Dependency;
 using Abp.Json;
 using Abp.Localization;
-using Abp.Runtime.Caching;
+using Abp.Web.Http;
 
 namespace Abp.Web.Localization
 {
     internal class LocalizationScriptManager : ILocalizationScriptManager, ISingletonDependency
     {
         private readonly ILocalizationManager _localizationManager;
-        private readonly ICacheManager _cacheManager;
         private readonly ILanguageManager _languageManager;
 
         public LocalizationScriptManager(
-            ILocalizationManager localizationManager, 
-            ICacheManager cacheManager,
+            ILocalizationManager localizationManager,
             ILanguageManager languageManager)
         {
             _localizationManager = localizationManager;
-            _cacheManager = cacheManager;
             _languageManager = languageManager;
         }
 
         /// <inheritdoc/>
         public string GetScript()
         {
-            return GetScript(Thread.CurrentThread.CurrentUICulture);
+            return GetScript(CultureInfo.CurrentUICulture);
         }
 
         /// <inheritdoc/>
@@ -49,8 +44,8 @@ namespace Abp.Web.Localization
             script.AppendLine("    abp.localization = abp.localization || {};");
             script.AppendLine();
             script.AppendLine("    abp.localization.currentCulture = {");
-            script.AppendLine("        name: '" + cultureInfo.Name + "',");
-            script.AppendLine("        displayName: '" + cultureInfo.DisplayName + "'");
+            script.AppendLine("        name: '" + HttpEncode.JavaScriptStringEncode(cultureInfo.Name) + "',");
+            script.AppendLine("        displayName: '" + HttpEncode.JavaScriptStringEncode(cultureInfo.DisplayName) + "'");
             script.AppendLine("    };");
             script.AppendLine();
             script.Append("    abp.localization.languages = [");
@@ -61,10 +56,11 @@ namespace Abp.Web.Localization
                 var language = languages[i];
 
                 script.AppendLine("{");
-                script.AppendLine("        name: '" + language.Name + "',");
-                script.AppendLine("        displayName: '" + language.DisplayName + "',");
-                script.AppendLine("        icon: '" + language.Icon + "',");
-                script.AppendLine("        isDefault: " + language.IsDefault.ToString().ToLower());
+                script.AppendLine("        name: '" + HttpEncode.JavaScriptStringEncode(language.Name) + "',");
+                script.AppendLine("        displayName: '" + HttpEncode.JavaScriptStringEncode(language.DisplayName) + "',");
+                script.AppendLine("        icon: '" + HttpEncode.JavaScriptStringEncode(language.Icon) + "',");
+                script.AppendLine("        isDisabled: " + language.IsDisabled.ToString().ToLowerInvariant() + ",");
+                script.AppendLine("        isDefault: " + language.IsDefault.ToString().ToLowerInvariant());
                 script.Append("    }");
 
                 if (i < languages.Count - 1)
@@ -80,10 +76,11 @@ namespace Abp.Web.Localization
             {
                 var currentLanguage = _languageManager.CurrentLanguage;
                 script.AppendLine("    abp.localization.currentLanguage = {");
-                script.AppendLine("        name: '" + currentLanguage.Name + "',");
-                script.AppendLine("        displayName: '" + currentLanguage.DisplayName + "',");
-                script.AppendLine("        icon: '" + currentLanguage.Icon + "',");
-                script.AppendLine("        isDefault: " + currentLanguage.IsDefault.ToString().ToLower());
+                script.AppendLine("        name: '" + HttpEncode.JavaScriptStringEncode(currentLanguage.Name) + "',");
+                script.AppendLine("        displayName: '" + HttpEncode.JavaScriptStringEncode(currentLanguage.DisplayName) + "',");
+                script.AppendLine("        icon: '" + HttpEncode.JavaScriptStringEncode(currentLanguage.Icon) + "',");
+                script.AppendLine("        isDisabled: " + currentLanguage.IsDisabled.ToString().ToLowerInvariant() + ",");
+                script.AppendLine("        isDefault: " + currentLanguage.IsDefault.ToString().ToLowerInvariant());
                 script.AppendLine("    };");
             }
 
@@ -96,7 +93,7 @@ namespace Abp.Web.Localization
             {
                 var source = sources[i];
                 script.AppendLine("        {");
-                script.AppendLine("            name: '" + source.Name + "',");
+                script.AppendLine("            name: '" + HttpEncode.JavaScriptStringEncode(source.Name) + "',");
                 script.AppendLine("            type: '" + source.GetType().Name + "'");
                 script.AppendLine("        }" + (i < (sources.Length - 1) ? "," : ""));
             }
@@ -109,7 +106,7 @@ namespace Abp.Web.Localization
 
             foreach (var source in sources)
             {
-                script.Append("    abp.localization.values['" + source.Name + "'] = ");
+                script.Append("    abp.localization.values['" + HttpEncode.JavaScriptStringEncode(source.Name) + "'] = ");
 
                 var stringValues = source.GetAllStrings(cultureInfo).OrderBy(s => s.Name).ToList();
                 var stringJson = stringValues

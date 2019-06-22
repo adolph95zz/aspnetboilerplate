@@ -1,12 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Abp.Application.Features;
 using Abp.Auditing;
 using Abp.BackgroundJobs;
 using Abp.Dependency;
 using Abp.Domain.Uow;
+using Abp.EntityHistory;
 using Abp.Events.Bus;
 using Abp.Notifications;
+using Abp.Resources.Embedded;
 using Abp.Runtime.Caching.Configuration;
 
 namespace Abp.Configuration.Startup
@@ -97,6 +100,31 @@ namespace Abp.Configuration.Startup
 
         public Dictionary<Type, Action> ServiceReplaceActions { get; private set; }
 
+        public IEmbeddedResourcesConfiguration EmbeddedResources { get; private set; }
+
+        public IEntityHistoryConfiguration EntityHistory { get; private set; }
+
+        public IList<ICustomConfigProvider> CustomConfigProviders { get; private set; }
+
+        public Dictionary<string, object> GetCustomConfig()
+        {
+            var mergedConfig = new Dictionary<string, object>();
+
+            using (var scope = IocManager.CreateScope())
+            {
+                foreach (var provider in CustomConfigProviders)
+                {
+                    var config = provider.GetConfig(new CustomConfigProviderContext(scope));
+                    foreach (var keyValue in config)
+                    {
+                        mergedConfig[keyValue.Key] = keyValue.Value;
+                    }
+                }
+            }
+
+            return mergedConfig;
+        }
+
         /// <summary>
         /// Private constructor for singleton pattern.
         /// </summary>
@@ -121,6 +149,10 @@ namespace Abp.Configuration.Startup
             Caching = IocManager.Resolve<ICachingConfiguration>();
             BackgroundJobs = IocManager.Resolve<IBackgroundJobConfiguration>();
             Notifications = IocManager.Resolve<INotificationConfiguration>();
+            EmbeddedResources = IocManager.Resolve<IEmbeddedResourcesConfiguration>();
+            EntityHistory = IocManager.Resolve<IEntityHistoryConfiguration>();
+
+            CustomConfigProviders = new List<ICustomConfigProvider>();
             ServiceReplaceActions = new Dictionary<Type, Action>();
         }
 

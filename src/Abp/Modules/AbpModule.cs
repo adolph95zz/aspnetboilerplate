@@ -13,7 +13,7 @@ namespace Abp.Modules
     /// This class must be implemented by all module definition classes.
     /// </summary>
     /// <remarks>
-    /// A module definition class is generally located in it's own assembly
+    /// A module definition class is generally located in its own assembly
     /// and implements some action in module events on application startup and shutdown.
     /// It also defines depended modules.
     /// </remarks>
@@ -40,7 +40,7 @@ namespace Abp.Modules
         }
 
         /// <summary>
-        /// This is the first event called on application startup. 
+        /// This is the first event called on application startup.
         /// Codes can be placed here to run before dependency injection registrations.
         /// </summary>
         public virtual void PreInitialize()
@@ -61,7 +61,7 @@ namespace Abp.Modules
         /// </summary>
         public virtual void PostInitialize()
         {
-            
+
         }
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace Abp.Modules
         /// </summary>
         public virtual void Shutdown()
         {
-            
+
         }
 
         public virtual Assembly[] GetAdditionalAssemblies()
@@ -83,10 +83,11 @@ namespace Abp.Modules
         /// <param name="type">Type to check</param>
         public static bool IsAbpModule(Type type)
         {
+            var typeInfo = type.GetTypeInfo();
             return
-                type.IsClass &&
-                !type.IsAbstract &&
-                !type.IsGenericType &&
+                typeInfo.IsClass &&
+                !typeInfo.IsAbstract &&
+                !typeInfo.IsGenericType &&
                 typeof(AbpModule).IsAssignableFrom(type);
         }
 
@@ -102,9 +103,9 @@ namespace Abp.Modules
 
             var list = new List<Type>();
 
-            if (moduleType.IsDefined(typeof(DependsOnAttribute), true))
+            if (moduleType.GetTypeInfo().IsDefined(typeof(DependsOnAttribute), true))
             {
-                var dependsOnAttributes = moduleType.GetCustomAttributes(typeof(DependsOnAttribute), true).Cast<DependsOnAttribute>();
+                var dependsOnAttributes = moduleType.GetTypeInfo().GetCustomAttributes(typeof(DependsOnAttribute), true).Cast<DependsOnAttribute>();
                 foreach (var dependsOnAttribute in dependsOnAttributes)
                 {
                     foreach (var dependedModuleType in dependsOnAttribute.DependedModuleTypes)
@@ -120,12 +121,12 @@ namespace Abp.Modules
         public static List<Type> FindDependedModuleTypesRecursivelyIncludingGivenModule(Type moduleType)
         {
             var list = new List<Type>();
-            AddModuleAndDependenciesResursively(list, moduleType);
+            AddModuleAndDependenciesRecursively(list, moduleType);
             list.AddIfNotContains(typeof(AbpKernelModule));
             return list;
         }
 
-        private static void AddModuleAndDependenciesResursively(List<Type> modules, Type module)
+        private static void AddModuleAndDependenciesRecursively(List<Type> modules, Type module)
         {
             if (!IsAbpModule(module))
             {
@@ -142,7 +143,7 @@ namespace Abp.Modules
             var dependedModules = FindDependedModuleTypes(module);
             foreach (var dependedModule in dependedModules)
             {
-                AddModuleAndDependenciesResursively(modules, dependedModule);
+                AddModuleAndDependenciesRecursively(modules, dependedModule);
             }
         }
     }

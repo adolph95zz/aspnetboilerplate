@@ -29,7 +29,7 @@ namespace Abp.Web.Timing
             script.AppendLine("(function(){");
 
             script.AppendLine("    abp.clock.provider = abp.timing." + Clock.Provider.GetType().Name.ToCamelCase() + " || abp.timing.localClockProvider;");
-            script.AppendLine("    abp.clock.provider.supportsMultipleTimezone = " + Clock.SupportsMultipleTimezone.ToString().ToLower(CultureInfo.InvariantCulture) + ";");
+            script.AppendLine("    abp.clock.provider.supportsMultipleTimezone = " + Clock.SupportsMultipleTimezone.ToString().ToLowerInvariant() + ";");
 
             if (Clock.SupportsMultipleTimezone)
             {
@@ -44,7 +44,7 @@ namespace Abp.Web.Timing
         private async Task<string> GetUsersTimezoneScriptsAsync()
         {
             var timezoneId = await _settingManager.GetSettingValueAsync(TimingSettingNames.TimeZone);
-            var timezone = TimeZoneInfo.FindSystemTimeZoneById(timezoneId);
+            var timezone = TimezoneHelper.FindTimeZoneInfo(timezoneId);
 
             return " {" +
                    "        windows: {" +

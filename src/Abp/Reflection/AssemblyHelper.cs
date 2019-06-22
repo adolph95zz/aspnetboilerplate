@@ -2,6 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.Loader;
 
 namespace Abp.Reflection
 {
@@ -13,7 +14,9 @@ namespace Abp.Reflection
                 .EnumerateFiles(folderPath, "*.*", searchOption)
                 .Where(s => s.EndsWith(".dll") || s.EndsWith(".exe"));
 
-            return assemblyFiles.Select(Assembly.LoadFile).ToList();
+            return assemblyFiles.Select(
+                Assembly.LoadFile
+            ).ToList();
         }
     }
 }
